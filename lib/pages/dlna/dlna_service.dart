@@ -37,8 +37,25 @@ void initDlnaDeviceCache() {
   }
 }
 
+/// 清空投屏设备缓存（内存与持久化存储）
+void clearDlnaDeviceCache() {
+  dlnaDeviceCache.clear();
+  try {
+    GStorage.localCache.delete(LocalCacheKey.dlnaDevices);
+  } catch (e) {
+    // 忽略异常
+  }
+}
+
 /// 保存搜到的设备列表并持久化存储
+/// 若新搜到的设备友好名称（friendlyName）与已缓存设备相同但 URLBase 不同（IP 发生变化），
+/// 则自动剔除旧 IP 设备，保留最新活跃设备
 void saveDlnaDevices(Map<String, DLNADevice> devices) {
+  final newNames = devices.values.map((d) => d.info.friendlyName).toSet();
+  dlnaDeviceCache.removeWhere(
+    (key, d) =>
+        newNames.contains(d.info.friendlyName) && !devices.containsKey(key),
+  );
   dlnaDeviceCache.addAll(devices);
   try {
     final list = dlnaDeviceCache.values.map((device) {

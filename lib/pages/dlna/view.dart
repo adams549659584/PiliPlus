@@ -33,11 +33,18 @@ class _DLNAPageState extends State<DLNAPage> {
     initDlnaDeviceCache();
     // 先复用缓存设备（可立即点击投屏），同时后台重新搜索刷新
     _deviceList.addAll(dlnaDeviceCache);
+    _onSearch(isInit: true);
   }
 
   Future<void> _onSearch({bool isInit = false}) async {
     if (_isSearching) return;
     _isSearching = true;
+    if (!isInit && mounted) {
+      _lastDevice = null;
+      _lastDeviceKey = null;
+      _deviceList.clear();
+      clearDlnaDeviceCache();
+    }
     if (mounted) setState(() {});
     final deviceManager = await _searcher.start();
     if (!mounted) {
@@ -47,8 +54,16 @@ class _DLNAPageState extends State<DLNAPage> {
     _timer = Timer(const Duration(seconds: 20), _searcher.stop);
     await for (final deviceList in deviceManager.devices.stream) {
       if (mounted) {
+        final newNames =
+            deviceList.values.map((d) => d.info.friendlyName).toSet();
+        _deviceList.removeWhere(
+          (key, d) =>
+              newNames.contains(d.info.friendlyName) &&
+              !deviceList.containsKey(key),
+        );
         _deviceList.addAll(deviceList);
         saveDlnaDevices(deviceList);
+        setState(() {});
       }
     }
     if (mounted) {
